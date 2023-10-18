@@ -8,7 +8,9 @@ var path = require('path');
 var fs = require('fs');
 var merge = require('merge');
 var urlModule = require('url');
-var Decompress = require('decompress');
+var decompress = require('decompress');
+var decompressTargz = require('decompress-targz');
+var decompressUnzip = require('decompress-unzip');
 var fileExists = require('file-exists');
 var chalk = require('chalk');
 
@@ -96,12 +98,20 @@ if( parsedUrl.protocol == 'file:' ) {
   if ( !fileExistsAndAvailable(filePath) ) logError(
     'Could not find ' + filePath
   );
-  new Decompress()
-    .src( filePath )
-    .dest( dest )
-    .use( Decompress.zip(decompressOptions) )
-    .use( Decompress.targz(decompressOptions) )
-    .run( cb );
+  decompress(filePath, dest,
+             { map: file => {
+                 const regex = /^[^\/]*\//i;
+                 file.path = `${file.path}`.replace(regex, '');
+                 return file;
+               },
+               plugins: [
+                 decompressUnzip(),
+                 decompressTargz()
+               ]}).then( files => {
+                 cb();
+               }).catch( err => {
+                 cb(err);
+               });
 } else {
   var progress = {
     total: null,
